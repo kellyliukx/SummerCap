@@ -37,11 +37,11 @@ public:
 	Detect();
 	//*****************************×¥ÇòÇø****************************//
 	//Çò¿ò¼ì²â£¬ÍÞÍÞ¼ì²â
-	void BlankDetect(Mat&img,vector<vector<Point>>&blankPoint);
+	void BlankDetect(Mat&img,vector<Point>&blankPoint);
 	void ToyDetect(Mat&img,vector<Point>&toyPoint);
 	//*****************************¾Å¹¬¸ñ****************************//
 	//¾Å¹¬¸ñ¼ì²â
-	void cube9Detect(Mat&img,int color,Point2f &cube);
+	void cube9Detect(Mat&img,int color,vector<vector<Point>> &cube);
 	//******************************LED******************************//
 	//LEDÆÁÊ¶±ð£¬Àº¿ð¼ì²â
 	void ledCubeDetect(Mat&img,vector<vector<Point>>&cubePoint);

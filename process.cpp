@@ -1,6 +1,6 @@
 # include"process.h"
 
-Detect::Detect():markerSize(30,30)
+Detect::Detect():markerSize(50,50)
 {
 	m_markerCorners2d.push_back(cv::Point2f(0,0));
 	m_markerCorners2d.push_back(cv::Point2f(markerSize.width-1,0));
@@ -64,7 +64,7 @@ void Detect::plotLine(Mat &img,vector<Point>&points )
 	line(img,points[0],points[points.size()-1],Scalar(255,0,0),2,8);
 	//imshow("imgline",img);
 }
-void Detect::BlankDetect(Mat&img,vector<vector<Point>>&blankPoint)
+void Detect::BlankDetect(Mat&img,vector<Point>&blankPoint)
 {
 	img.copyTo(imgforshow);
 	Mat imgGray;
@@ -72,11 +72,13 @@ void Detect::BlankDetect(Mat&img,vector<vector<Point>>&blankPoint)
 	vector<vector<Point>> m_contours;
 	Mat imgHSV ;
 	cvtColor(img,imgGray,CV_RGB2GRAY);
+	cvtColor(img,imgHSV,CV_RGB2HSV);
 	Mat equalImg;
 	adaptiveThreshold(imgGray,s_threshold,255,CV_ADAPTIVE_THRESH_GAUSSIAN_C,THRESH_BINARY_INV,7,7);
 	//连通域
-	findContours(s_threshold, m_contours,CV_RETR_LIST ,imgGray.cols/5);
+	findContours(s_threshold, m_contours,CV_RETR_EXTERNAL ,imgGray.cols/5);
 	vector<Point>approxCurve;
+	vector<vector<Point>>choosePoint;
 	int cubeflag=0;
 	//vector<vector<Point>> possibleMarkers;
 	for (size_t i=0;i<m_contours.size();i++)
@@ -105,16 +107,68 @@ void Detect::BlankDetect(Mat&img,vector<vector<Point>>&blankPoint)
 		if(!cubeflag)
 			continue;
 		cubeflag = 0;
-		blankPoint.push_back(approxCurve);
-		plotLine(imgforshow,approxCurve);
+		//看看能不能变换哈
+		/*
+		vector<Point2f>possiblecube;
+		for (size_t j=0;j<4;j++)
+		{
+			possiblecube.push_back(Point2f(approxCurve[j].x,approxCurve[j].y));
+		}
+		Mat canonicalMarkerImage;
+		cv::Mat markerTransform = cv::getPerspectiveTransform(possiblecube, m_markerCorners2d); 
+		cv::warpPerspective(imgHSV, canonicalMarkerImage,  markerTransform, markerSize);  
+		//imshow("canonicalMarkerImage",canonicalMarkerImage);
+	 	Mat img_threshold_white;
+		//检测mask内的像素分布
+		Mat white_low(Scalar(0,0,180));
+		Mat white_higher(Scalar(70,70,255));
+		uchar pixel =0;
+		int pixels=0;
+        inRange(canonicalMarkerImage,white_low,white_higher,img_threshold_white);
+		for (size_t a=0;a<img_threshold_white.rows;a++)
+		{
+			for (size_t b=0;b<img_threshold_white.cols;b++)
+			{
+				pixel = img_threshold_white.at<uchar>(a,b);
+				if (pixel==1)
+				{
+					pixels++;
+				}		
+			}
+
+		}
+		float ratioROI = pixels/(img_threshold_white.rows*img_threshold_white.cols);
+		if (ratioROI>0.15)
+			continue;
+			*/
+		choosePoint.push_back(approxCurve);
+		//plotLine(imgforshow,approxCurve);
 	}
-	//imshow("cube",imgforshow);
+	if (choosePoint.data())
+	{
+		int maxConture=0;
+		int contoutIndex =0;
+		blankPoint.clear();
+		for (size_t i =0;i<choosePoint.size();i++)
+		{
+			int contoutAreaa = contourArea(choosePoint[i]);
+			if(maxConture<contoutAreaa)
+			{
+				maxConture = contoutAreaa;
+				contoutIndex = i;
+			}
+		}
+		blankPoint = choosePoint[contoutIndex];
+		plotLine(imgforshow,blankPoint);
+	}
+	//plotLine(imgforshow,blankPoint);
+	imshow("cube",imgforshow);
 	//imshow("threshold2",s_threshold);
 }
 void Detect::ToyDetect(Mat&img,vector<Point>&toyPoint)
 {
 	
-	vector<vector<Point>>blankPoint;
+	vector<Point>blankPoint;
 	//先检测篮筐，在篮筐的区域内检测娃娃
 	BlankDetect(img,blankPoint);
 	if (blankPoint.size()==1)
@@ -238,7 +292,7 @@ void Detect::plotRect(vector<Rect>&rects,Mat &img)
 	}
 	imshow("rects",img);
 }
-void Detect::cube9Detect(Mat&img,int color,Point2f &cube)
+void Detect::cube9Detect(Mat&img,int color,vector<vector<Point>> &cube)
 {
 	Mat imgHSV3D[3],img3D[3];
 	Mat imgresult,imgGauss;
@@ -278,6 +332,11 @@ void Detect::cube9Detect(Mat&img,int color,Point2f &cube)
 	// For each contour, analyze if it is a paralelepiped likely to be the marker
 	for (size_t i=0; i<m_contours.size(); i++)
 	{
+		int contourSize = contourArea(m_contours[i]);
+		if (contourSize > imgGray.rows*imgGray.cols/3)
+		{
+			continue;
+		}
 		// Approximate to a poligon
 		cv::approxPolyDP(Mat(m_contours[i]), approxCurve, double(m_contours[i].size())*0.07 , true);
 		// We interested only in polygons that contains only four vertices
@@ -323,6 +382,7 @@ void Detect::cube9Detect(Mat&img,int color,Point2f &cube)
 		 {
 			 int roi_x = (possibleMarkers[i][0].x+possibleMarkers[i][1].x+possibleMarkers[i][2].x+possibleMarkers[i][3].x)/4;
 			 int roi_y = (possibleMarkers[i][0].y+possibleMarkers[i][1].y+possibleMarkers[i][2].y+possibleMarkers[i][3].y)/4;
+			 cube.push_back(possibleMarkers[i]);
 			 colorPoints.push_back(Point(roi_x,roi_y));
 		 }
 	} 
@@ -429,7 +489,7 @@ void Detect::ledCubeDetect(Mat&img,vector<vector<Point>>&cubePoint)
 		cubePoint.push_back(approxCurve);
 		plotLine(imgforshow,approxCurve);
 	}
-	//imshow("cube",imgforshow);
+	imshow("cube",imgforshow);
 	//imshow("threshold2",s_threshold);
 }
 void Detect::ledDetect(Mat&img,vector<int> &results,vector<Point2f>&toyCenters)

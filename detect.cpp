@@ -10,7 +10,6 @@ void testTime()
 	time_ = 1000*static_cast<double>(cv::getTickCount()-time_)/cv::getTickFrequency();
 	std::cout<<"time = "<<time_<<"ms"<<std::endl;
 }
-
 int main()
 {
 	VideoCapture capture(0);
@@ -18,7 +17,10 @@ int main()
 		return -1;
 	Mat frame;
 	Detect code;
-	Point2f cube;
+	vector<vector<Point>> cube;
+	vector<vector<Point>>blankDetect;
+	vector<int> results;
+	vector<Point2f>toyCenters;
 	while (capture.isOpened())
 	{
 		capture>>frame;
@@ -26,7 +28,8 @@ int main()
 		if (!frame.data)
 			break;		
 		vector <Point> blankPoint;
-		code.cube9Detect(img,2,cube);
+		code.ledCubeDetect(img,cube);
+//		imshow("cube",imgforshow);
 		if(waitKey(30)>=0) break;
 	}
 	frame.release();
@@ -34,6 +37,7 @@ int main()
 	destroyAllWindows();
 	return 0;
 }
+
 /*
 int main()
 {
